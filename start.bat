@@ -58,7 +58,7 @@ if errorlevel 1 (
   echo   Frontend already running.
 )
 
-start "" http://localhost:5176
+start "" http://127.0.0.1:5176
 echo.
 echo System started.
 echo Login: root / root

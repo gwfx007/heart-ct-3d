@@ -1,34 +1,62 @@
 ﻿心脏CT 3D可视化系统 — 迁移到其他电脑 使用说明
 ==================================================
 
-【一、在原电脑准备】
-1. 双击 stop.bat，停止所有服务（必须做，否则数据库文件可能拷贝不完整）
-2. 把整个 heart_3d_project 文件夹拷到 U 盘 / 移动硬盘
-   （体积约 2.4 GB，数据库、病例数据、程序都已在文件夹里）
-   也可以双击 pack_for_other_pc.bat 自动打包成桌面上的 heart3d_portable.zip
+【零、这个文件夹里有什么（先看一眼，别删错）】
+  start.bat / stop.bat / first_setup.bat   一键启动 / 停止 / 首次安装
+  _tools\       MySQL 8.0.42 和 Node.js 22 的运行程序（必须随包带走，缺了系统起不来）
+  _install\     离线安装包（只有 Python 3.11.9 安装程序，25 MB）
+  backend\      后端源码 + 依赖清单（venv 换电脑会自动重建，不用拷）
+  frontend\     前端源码 + 已装好的 node_modules（约 106 MB，带走可免去联网装依赖）
+  data\         病例数据：体数据 .npy、DICOM 序列、解析缓存、病例专属三维模型
+  mysql-data\   数据库文件（13 个病例、22 处病灶、root 账号都在里面）
+  research\     AI 分析实验代码与结果（参赛材料，不含密钥）
+  README.md     功能与技术说明
 
-【二、在目标电脑】
-1. 把文件夹放到任意位置（如 D:\heart_3d_project）
+  ★ 千万不要删 data\ 和 mysql-data\ —— 病例全在这里，删了病例就没了。
+  ★ research\config.local.json 是本机的大模型 API Key，打包时会被自动排除；
+    对方电脑要做 AI 分析，需要自己填这个文件（模板见 config.local.example.json）。
+
+【一、在原电脑（你的电脑）准备】
+1. 双击 stop.bat，等到窗口显示「MySQL stopped, data files are safe to copy」
+   （必须做，否则数据库文件可能拷贝不完整）
+2. 推荐：双击 pack_for_other_pc.bat
+   → 自动停服务、自动排除 venv / 缓存 / .git 历史 / 日志 / 含密钥的配置文件
+   → 在桌面生成 heart3d_portable.zip（实测约 0.70 GB，用 51 秒；C 盘留 5 GB 空闲即可）
+3. 如果不用脚本、直接拷整个文件夹，**必须先手动删掉这三样**：
+   - backend\venv\                （545 MB，换电脑必失效，会自动重建）
+   - research\config.local.json   （含你的 API Key，不能给别人）
+   - .git\                        （版本历史，2106 个对象文件，对外分发不需要）
+   否则包会大 500 MB，密钥和历史记录也会一起泄露。
+   直接拷贝整个文件夹约 3.9 GB，U 盘建议留 4.5 GB 以上空间；
+   用 pack 脚本得到的 zip 只有 0.7 GB。
+
+【二、在目标电脑（别人的电脑）】
+1. 把文件夹或 zip 放到任意位置（如 D:\heart_3d_project）
    路径尽量不含中文和空格，更稳妥
-2. 安装 Python 3.11.9（必须）：
-   https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe
-   安装时务必勾选 "Add python.exe to PATH"
+2. 安装 Python 3.11.9（必须，且必须勾选 Add python.exe to PATH）：
+   - 有网：https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe
+   - 没网：直接双击 _install\python-3.11.9-amd64.exe（包里自带的离线安装程序）
 3. 安装微软 VC++ 运行库（MySQL 和 Node 都需要，多数电脑已有）：
    https://aka.ms/vs/17/release/vc_redist.x64.exe
 4. 双击 first_setup.bat（首次安装，只跑一次）
-   作用：自动重建 Python 虚拟环境、安装后端依赖、检查前端依赖
-   需要联网，约 2~5 分钟
-5. 双击 start.bat 启动，浏览器会自动打开 http://localhost:5173
+   作用：重建 Python 虚拟环境、装后端依赖、检查前端依赖、建桌面快捷方式
+   需要联网，约 2~5 分钟（后端 pip 走清华源，前端走 npmmirror）
+5. 双击 start.bat 启动，浏览器会自动打开 http://localhost:5176
    登录账号 root    密码 root
+6. 目标电脑若装过 MySQL 服务并占着 3306，先在 services.msc 里停掉它，
+   否则本系统的数据库起不来。
 
 【三、日常使用】
-- 启动：双击 start.bat（或桌面快捷方式）
+- 启动：双击 start.bat（或桌面快捷方式 Heart3D System）
 - 停止：双击 stop.bat
-- 数据库里已有 10 个病例，不需要重新导入
+- 访问：http://localhost:5176（后端接口 127.0.0.1:8000，接口文档 /docs）
+- 数据库里已有 13 个病例，不需要重新导入：
+  P0001~P0010（10 个模拟病例）、P0023 示例病例（76 岁，AI 已分析过）、
+  测试病例、P0001H 张三（384 MB 高清体数据病例）
 
 【四、DICOM 影像数据（答辩演示用）】
-1. 位置：data\dicom\case_01 … case_10，每例 192 个切片（IM0001.dcm … IM0192.dcm）
-   整套约 240 MB，已包含在文件夹里，拷贝时不要漏掉 data 目录
+1. 位置：data\dicom\case_01 … case_10、case_16、case_17，共 12 例，每例 192 个切片
+   （IM0001.dcm … IM0192.dcm），合计 2304 片，约 291 MB，拷贝时不要漏掉 data 目录
 2. 万一 data\dicom 丢了或为空：
    backend\venv\Scripts\python.exe backend\make_dicom.py
    （只做一例：加 --case 1；只做前两例：加 --limit 2）
@@ -49,14 +77,14 @@
    点「3D 查看」即可用刚上传的 .dcm 出三维图（新档案没有预置病灶，AI 分析会显示「未检出」）
    注意：检查号不能与已有档案重复（如 P0001 已被占用）
 7. 编辑 / 删除档案：列表每行有三个按钮「3D查看」「编辑」「删除」
-   「编辑」可改检查号、姓名、性别、年龄、检查日期、检查项目（影像数据不变，检查号不能与他人重复）
+   「编辑」可改检查号、姓名、性别、年龄、检查日期、检查项目（影像数据不变）
    「删除」会弹二次确认，确认后该档案的病灶、体数据 .npy、DICOM 序列目录一起删掉，不可恢复
-   （预置的 10 个病例删掉后，重跑 seed_data.py 与 make_dicom.py 可以恢复）
+   （预置的模拟病例删掉后，重跑 seed_data.py 与 make_dicom.py 可以恢复）
 8. 3D 展示模式：左侧「3D 展示」组可切「解剖模型」/「体数据渲染」
    「解剖模型」：glb 三维心脏（心脏 + 冠脉 + 肺血管树），可拖动旋转、滚轮缩放，
       首次进页面会显示加载进度（约 73 MB）；该病例已入库的病灶会以黄色小球标在模型上
       病例专属模型：把该病例的模型按 case_01.glb、case_02.glb …… 命名，放进
-      frontend\public\models\ 目录，进对应病例页面就自动用专属模型（视图右下角提示「本病例专属模型」）；
+      frontend\public\models\ 目录，进对应病例页面就自动用专属模型（右下角提示「本病例专属模型」）；
       没有对应文件时回退通用 heart_model.glb，提示「通用解剖模型（无专属文件时）」
    「体数据渲染」：按当前病例的 DICOM 体素重建，才支持窗宽窗位与体渲染裁剪
    模型模式下「窗宽/窗位」「体渲染裁剪范围」面板自动置灰，AI 分析不受影响
@@ -66,12 +94,20 @@
    剖开后切面是实心的（暗红心肌 + 中心渐暗的心腔），不是空壳内壁；
    三格各可拖拽旋转、滚轮缩放，双击复位
 
-【五、常见问题】
+【五、AI 分析换电脑后怎么恢复】
+本机 AI 分析读的是 research\config.local.json（含 base_url / model / api_key）。
+这个文件含密钥，打包时已自动排除，不会带到别人电脑，也不会泄露。
+到了新电脑要恢复 AI 分析：
+1. 复制 research\config.local.example.json，改名成 config.local.json
+2. 打开填入自己的 base_url / model / api_key（与原电脑相同即可）
+3. 重开页面，AI 分析恢复；不填的话「AI 病灶分析」会提示模型调用失败
+
+【六、常见问题】
 1. 启动报错或页面打不开
-   先看三个黑窗口有没有报错；确认 3306 / 8000 / 5173 端口没被占用
+   先看三个黑窗口有没有报错；确认 3306 / 8000 / 5176 端口没被占用
    （目标电脑若装过 MySQL 服务，先停止它，否则 3306 冲突）
 2. 提示缺少 VCRUNTIME140.dll
-   装第 2 步的 VC++ 运行库
+   装第 3 步的 VC++ 运行库
 3. 杀毒软件拦截 mysqld.exe / node.exe
    选择"允许运行"
 4. first_setup.bat 提示找不到 Python
@@ -85,5 +121,10 @@
    确认 frontend\public\models\heart_model.glb 还在（73.3 MB），丢了就从原电脑补回这个文件
    点「体数据渲染」可以先看由 DICOM 重建的三维图，不受模型文件影响
 8. 目标电脑上「解剖模型」报找不到 glb / 页面白屏
-   说明前端依赖或模型文件没随文件夹一起拷过来：确认 frontend\node_modules\three 存在，
-   缺失时在 frontend 目录执行 npm install（或重跑 first_setup.bat）
+   确认 frontend\node_modules\three 存在，缺失时在 frontend 目录执行 npm install
+   （或重跑 first_setup.bat）
+9. 5176 端口被别的程序占了
+   新版配置是严格端口，vite 会直接报错退出、不再自动换端口。改两处即可：
+   frontend\vite.config.js 里的 port，以及 start.bat、_run_frontend.bat 里的 5176
+10. 双击 start.bat 一闪就没了
+   说明 backend\venv 不存在或坏了，先双击 first_setup.bat 重建一次

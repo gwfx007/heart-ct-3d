@@ -11,7 +11,7 @@
         <span v-if="caseInfo" class="p-meta">检查号 {{ caseInfo.patient_id }}</span>
         <span v-if="caseInfo" class="p-desc">{{ caseInfo.study_desc }}</span>
       </div>
-      <div class="env-tag"><i class="env-dot"></i>本地演示环境 · 课程项目</div>
+      <div class="env-tag"><i class="env-dot"></i>本地演示环境</div>
     </header>
     <div class="body">
       <VolumeViewer :case-id="caseId" />

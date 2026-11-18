@@ -14,12 +14,12 @@
 
 ## 启动 / 停止
 
-- **启动**：双击 `start.bat`（自动启动 MySQL、后端 8000 端口、前端 5173 端口并打开浏览器）
+- **启动**：双击 `start.bat`（自动启动 MySQL、后端 8000 端口、前端 5176 端口并打开浏览器）
 - **停止**：双击 `stop.bat`
 
 ## 访问
 
-- 前端页面：http://localhost:5173
+- 前端页面：http://localhost:5176
 - 后端接口：http://127.0.0.1:8000/api/health
 - 接口文档：http://127.0.0.1:8000/docs
 - 默认账号：`root` / `root`
@@ -27,7 +27,8 @@
 ## 功能
 
 1. 账号登录与权限（管理员 root）
-2. 病例列表管理（10 个预置模拟病例，18 处病灶；支持新建 / 编辑 / 删除档案）
+2. 病例列表管理（13 个病例、22 处病灶：P0001–P0010 模拟病例、P0023 示例病例、
+   测试病例、P0001H 高清体数据病例；支持新建 / 编辑 / 删除档案）
 3. 3D 视图双模式：**解剖模型**（默认，glb 三维心脏 + 冠脉/肺血管贴图，可拖动旋转与滚轮缩放，病例病灶投影标记）/
    **体数据渲染**（VTK.js 体绘制，窗宽窗位、三方向剖切、视图重置）
 4. 剖切视图双模式：**三方相 3D 剖切**（默认，把 glb 模型沿轴位/冠状/矢状实时剖开）/ **2D 精读**
@@ -41,7 +42,8 @@
 
 - **生成**：`backend\venv\Scripts\python.exe backend\make_dicom.py`
   （`--case 1` 只做单例，`--limit 2` 只做前两例）
-- **产物**：`data\dicom\case_01 … case_10`，每例 192 片 `IM0001.dcm … IM0192.dcm`，合计 1920 片
+- **产物**：`data\dicom\case_01 … case_10`、`case_16`、`case_17`，共 12 例，每例 192 片
+  `IM0001.dcm … IM0192.dcm`，合计 2304 片
   - CT Image Storage / Explicit VR Little Endian / 16 bit 有符号 / 像素即 HU 值
   - 256×256、层厚 1.0 mm、像素间距 1.0×1.0 mm、窗位 120 / 窗宽 600
   - 中文姓名用 `ISO_IR 192`(UTF-8) 编码，RadiAnt、MicroDicom、3D Slicer 均可直接打开
@@ -87,7 +89,8 @@
 
 ## AI 病灶分析（真实模型推理）
 
-- **凭证**：`research\config.local.json`（`base_url` / `model` / `api_key`）。该文件含密钥，不随代码分发、不进报告。
+- **凭证**：`research\config.local.json`（`base_url` / `model` / `api_key`）。该文件含密钥，
+  打包分发时由 `pack_for_other_pc.bat` 自动排除；对方电脑需按 `config.local.example.json` 自行填写。
 - **后端** `backend\app\routers\analyze.py`：
   - `POST /api/cases/{id}/analyze` → 启动异步任务，返回 `task_id`
   - `GET  /api/analyze/tasks/{tid}` → 轮询阶段与结果（`stage ∈ volume|feature|llm|verify|done`）
