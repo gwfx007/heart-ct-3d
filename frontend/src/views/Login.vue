@@ -35,6 +35,7 @@
         <button class="submit" :disabled="loading">{{ loading ? '登录中...' : '登 录' }}</button>
       </form>
       <p class="tip">演示账号 root / root</p>
+      <a class="intro" href="/landing/index.html">了解本系统 · 查看介绍页 →</a>
     </div>
   </div>
 </template>
@@ -274,4 +275,13 @@ h1 {
   font-family: 'Bahnschrift', 'Microsoft YaHei UI', sans-serif;
   font-size: 10.5px; letter-spacing: .12em; color: #6d92b3;
 }
+
+.intro {
+  display: block; margin: 12px 0 0; text-align: center;
+  font-family: 'Bahnschrift', 'Microsoft YaHei UI', sans-serif;
+  font-size: 10.5px; letter-spacing: .12em;
+  color: #7fb2d6; text-decoration: none;
+  transition: color .18s, text-shadow .18s;
+}
+.intro:hover { color: #41e0ff; text-shadow: 0 0 12px rgba(41, 224, 255, .5); }
 </style>

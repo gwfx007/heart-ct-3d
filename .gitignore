@@ -11,6 +11,9 @@ node_modules/
 frontend/dist/
 data/ai_results/*.json
 
+# 运行期回滚快照（每次回滚重建，不含可复现信息）
+data/回滚状态*.json
+
 # 运行期数据库、安装包与工具目录（体积大、可由脚本重建）
 mysql-data/
 _tools/

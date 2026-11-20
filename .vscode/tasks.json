@@ -43,7 +43,7 @@
       }
     },
     {
-      "label": "3. 前端 Vite (5173)",
+      "label": "3. 前端 Vite (5176)",
       "type": "process",
       "command": "C:\\heart_3d_project\\_tools\\node_extract\\node-v22.23.4-win-x64\\node.exe",
       "args": [
@@ -66,7 +66,7 @@
       "dependsOn": [
         "1. MySQL 数据库 (3306)",
         "2. 后端 API (8000)",
-        "3. 前端 Vite (5173)"
+        "3. 前端 Vite (5176)"
       ],
       "group": {
         "kind": "build",

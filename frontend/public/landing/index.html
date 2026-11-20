@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Heart3D · 心脏CT 3D可视化医疗辅助系统</title>
+<style>
+:root{--bg:#050b14;--cy:#00e5ff;--rd:#ff4d6d;--tx:#e8f4ff;--mu:#8ba7cc;--ln:rgba(0,229,255,.15);--gl:rgba(12,28,48,.5);--mono:'Bahnschrift','Consolas',ui-monospace,monospace;--sans:'Bahnschrift','PingFang SC','Microsoft YaHei',sans-serif;
+--paper:var(--tx);--ink:var(--bg);--ink2:#08192b;--fg:var(--tx);--rule:var(--ln);--rule2:rgba(0,229,255,.3);--ac:var(--cy);--ac-ink:#04121f;--sig:var(--rd);--grid:rgba(0,229,255,.04);--panel:var(--gl);--pbd:rgba(0,229,255,.15)}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--tx);font-family:var(--sans);overflow-x:hidden;-webkit-font-smoothing:antialiased}
+::selection{background:var(--cy);color:#04121f}
+a{color:inherit;text-decoration:none}
+canvas{display:block}
+.grid{position:fixed;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:60px 60px;mask-image:radial-gradient(ellipse 75% 55% at 45% 25%,#000 15%,transparent 85%)}
+.glow{position:fixed;z-index:0;pointer-events:none;border-radius:50%;filter:blur(100px);opacity:.45}
+.glow.a{width:600px;height:600px;top:-240px;right:-100px;background:radial-gradient(circle,rgba(0,229,255,.25),transparent 65%)}
+.glow.b{width:520px;height:520px;top:48%;left:-220px;background:radial-gradient(circle,rgba(255,77,109,.16),transparent 65%)}
+#bgp{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5}
+.wrap{position:relative;z-index:2;max-width:1280px;margin:0 auto;padding:0 32px}
+
+/* NAV */
+nav{position:fixed;inset:0 0 auto;z-index:50;transition:background .3s,border-color .3s;border-bottom:1px solid transparent}
+nav.stuck{background:rgba(5,11,20,.85);backdrop-filter:blur(18px);border-color:var(--ln)}
+.nin{max-width:1280px;margin:auto;padding:0 32px;height:68px;display:flex;align-items:center;gap:40px}
+.logo{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-weight:900;font-size:18px;letter-spacing:.5px}
+.logo svg{width:26px;height:26px;color:var(--cy)}
+.logo b{color:var(--cy)}
+.logo span{display:flex;flex-direction:column;line-height:1.1}
+.logo small{font-family:var(--mono);font-size:8px;font-weight:400;letter-spacing:1px;color:var(--mu);white-space:nowrap}
+.nlinks{display:flex;gap:28px;margin-left:auto}
+.nlinks a{font-size:14px;color:var(--mu);position:relative;transition:color .25s}
+.nlinks a::after{content:"";position:absolute;left:0;bottom:-5px;width:0;height:1px;background:var(--rd);transition:width .3s}
+.nlinks a:hover,.nlinks a.active{color:var(--cy)}
+.nlinks a:hover::after,.nlinks a.active::after{width:100%}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;font-size:14px;font-weight:700;color:#04121f;background:var(--cy);border:1px solid var(--cy);cursor:pointer;position:relative;overflow:hidden;clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px)}
+.btn:hover{background:var(--rd);border-color:var(--rd);color:#fff}
+.btn.ghost{background:transparent;color:var(--cy)}
+.btn.ghost:hover{background:rgba(0,229,255,.1);color:var(--cy);border-color:var(--cy)}
+.rp{position:absolute;width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.6);transform:scale(0);animation:rp .6s forwards;pointer-events:none}
+@keyframes rp{to{transform:scale(16);opacity:0}}
+
+/* HERO - 不对称 */
+.hero{position:relative;padding:150px 0 40px;min-height:94vh}
+.hero-in{position:relative;min-height:620px}
+.hero-copy{position:relative;z-index:3;width:min(62%,720px)}
+.hero h1{font-size:clamp(30px,8.2vw,76px);line-height:1.06;letter-spacing:-2px;font-weight:700;color:var(--tx)}
+.hero h1 em{font-style:normal;background:linear-gradient(100deg,var(--cy),#7dd3fc 50%,var(--rd));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .lead{margin-top:28px;font-size:18px;line-height:1.8;color:var(--mu);max-width:480px}
+.hero .acts{display:flex;gap:12px;margin-top:34px}
+.visual{position:absolute;right:-3%;bottom:-4%;width:54%;height:560px;z-index:1}
+#hc{position:absolute;inset:0;width:100%;height:100%;cursor:grab}
+#hc:active{cursor:grabbing}
+.fb{position:absolute;width:200px;height:180px;left:50%;top:50%;transform:translate(-50%,-50%);display:none;background:linear-gradient(150deg,var(--cy),var(--rd));clip-path:polygon(50% 0,100% 35%,85% 100%,15% 100%,0 35%);filter:drop-shadow(0 0 30px var(--cy))}
+.load{position:absolute;bottom:8%;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--cy);white-space:nowrap;transition:opacity .5s;z-index:4}
+.load i{display:block;width:150px;height:2px;background:linear-gradient(90deg,var(--cy),var(--rd));margin-top:8px;transform:scaleX(.1);transform-origin:left;transition:transform .3s}
+.load.off{opacity:0}
+.tag{position:absolute;font-family:var(--mono);font-size:10px;color:var(--cy);border-left:1px solid var(--cy);padding:2px 0 2px 10px;background:rgba(5,18,32,.6);white-space:nowrap;pointer-events:none}
+.tag small{display:block;color:var(--mu);font-size:9px}
+.tag.a{top:12%;right:2%}.tag.b{top:46%;left:-4%}.tag.c{bottom:14%;right:12%}
+.ring{position:absolute;width:420px;height:420px;left:50%;top:50%;transform:translate(-50%,-50%);border:1px solid rgba(0,229,255,.1);border-radius:50%;pointer-events:none}
+.ring::before,.ring::after{content:"";position:absolute;inset:26px;border:1px dashed rgba(0,229,255,.12);border-radius:50%;animation:spin 30s linear infinite}
+.ring::after{inset:70px;border-color:rgba(255,77,109,.1);animation-duration:20s;animation-direction:reverse}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* 数字 - 紧贴上一段，不等宽 */
+.nums{border-top:1px solid var(--ln);border-bottom:1px solid var(--ln);background:rgba(0,229,255,.025)}
+.nums-in{display:flex;align-items:center;gap:0;flex-wrap:wrap;padding:26px 0}
+.nums-in div{padding:0 34px;border-right:1px solid var(--ln)}
+.nums-in div:first-child{padding-left:0}
+.nums-in div:last-child{border:0}
+.nums b{display:block;font-family:var(--mono);font-weight:900;color:var(--cy);line-height:1}
+.nums-in div:nth-child(1) b{font-size:42px}.nums-in div:nth-child(2) b{font-size:32px;color:var(--rd)}
+.nums-in div:nth-child(3) b{font-size:48px}.nums-in div:nth-child(4) b{font-size:28px}
+.nums span{font-size:12px;color:var(--mu);letter-spacing:1px}
+
+/* 能力 - 错落长列表，差异化 hover */
+.work{padding:46px 0 160px}
+.ttl{font-size:clamp(30px,4vw,52px);font-weight:700;line-height:1.1;letter-spacing:-1px}
+.work .ttl{margin-bottom:50px}
+.rows{border-top:1px solid var(--ln)}
+.row{display:grid;grid-template-columns:80px minmax(200px,1fr) minmax(240px,1.2fr) 40px;align-items:center;gap:20px;padding:24px 12px;border-bottom:1px solid var(--ln);position:relative;overflow:hidden;cursor:default;transition:padding .35s}
+.row::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,229,255,.09),transparent 70%);transform:translateX(-101%);transition:transform .45s cubic-bezier(.2,.8,.2,1)}
+.row:hover::before{transform:none}
+.row:hover{padding-left:34px}
+.row .no{font-family:var(--mono);font-size:13px;color:var(--mu);position:relative;transition:color .3s,font-size .3s}
+.row:hover .no{color:var(--rd);font-size:19px}
+.row h3{font-size:22px;font-weight:700;position:relative}
+.row p{font-size:14px;line-height:1.7;color:var(--mu);position:relative;transition:color .3s}
+.row:hover p{color:var(--tx)}
+.row .ar{font-size:20px;color:var(--cy);opacity:0;transform:translateX(-14px);transition:.35s;position:relative}
+.row:hover .ar{opacity:1;transform:none}
+.row:nth-child(even) h3{padding-left:24px}
+.row:nth-child(even) .no{color:rgba(0,229,255,.55)}
+
+/* 视图 - 截图大，说明偏右，tab 靠左 */
+.view{padding:150px 0 130px;background:linear-gradient(180deg,transparent,rgba(0,229,255,.02),transparent)}
+.view .ttl{margin-bottom:36px}
+.tabs{display:flex;gap:0;margin-bottom:30px;border-bottom:1px solid var(--ln)}
+.tab{padding:11px 20px;font-family:var(--mono);font-size:12px;color:var(--mu);cursor:pointer;position:relative}
+.tab::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--cy);transform:scaleX(0);transform-origin:left;transition:transform .3s}
+.tab:hover::after,.tab.on::after{transform:none}
+.tab.on{color:var(--cy)}
+.panel{display:grid;grid-template-columns:1fr;border:1px solid var(--pbd);background:var(--panel);border-radius:2px}
+.chrome{display:flex;align-items:center;gap:8px;padding:11px 16px;border-bottom:1px solid var(--rule);background:var(--ink2)}
+.chrome i{width:8px;height:8px;border-radius:50%;background:var(--rule2)}
+.chrome i:first-child{background:#f24822}.chrome i:nth-child(2){background:#ffb35c}.chrome i:nth-child(3){background:var(--ac)}
+.chrome .live{margin-left:auto;font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--ac);display:flex;align-items:center;gap:6px}
+.chrome .live::before{content:"";width:6px;height:6px;background:var(--ac);border-radius:50%;box-shadow:0 0 8px var(--ac);animation:blink 1.6s infinite}
+.pbody{display:grid;grid-template-columns:1.4fr .6fr;gap:0}
+.shot{position:relative;background:radial-gradient(circle at 50% 50%,rgba(0,229,255,.08),transparent 65%);display:flex;align-items:center;justify-content:center;padding:30px;border-right:1px solid var(--ln);overflow:hidden}
+.frame{position:relative;width:100%;border:1px solid rgba(0,229,255,.25);background:#071321;box-shadow:0 20px 50px rgba(0,0,0,.5)}
+.bar{height:24px;display:flex;align-items:center;gap:6px;padding:0 9px;background:rgba(0,229,255,.06);border-bottom:1px solid var(--ln)}
+.bar i{width:7px;height:7px;border-radius:50%;background:rgba(0,229,255,.3)}
+.bar i:first-child{background:var(--rd)}.bar i:nth-child(2){background:#ffc066}
+.bar em{margin-left:auto;font-style:normal;font-family:var(--mono);font-size:9px;color:var(--cy)}
+.frame img{display:block;width:100%;transition:opacity .3s;cursor:zoom-in}
+.info{padding:36px 32px;display:flex;flex-direction:column;justify-content:center}
+.info .mt{font-family:var(--mono);font-size:11px;letter-spacing:2px;color:var(--rd);margin-bottom:14px}
+.info h3{font-size:26px;margin-bottom:16px}
+.info p{font-size:15px;line-height:1.8;color:var(--mu);margin-bottom:20px}
+.info ul{list-style:none;display:grid;gap:10px}
+.info li{font-size:13px;padding-left:16px;position:relative;color:var(--tx)}
+.info li::before{content:"·";position:absolute;left:0;color:var(--cy);font-size:18px;line-height:1}
+
+/* AI - 流程 + 偏移报告 */
+.ai{padding:60px 0 170px}
+.ai .ttl{margin-bottom:60px}
+.flow{display:grid;grid-template-columns:repeat(4,1fr);position:relative;margin-bottom:70px}
+.flow::before{content:"";position:absolute;top:28px;left:10%;right:10%;height:1px;background:linear-gradient(90deg,transparent,var(--cy),var(--rd),transparent)}
+.step{text-align:center;position:relative;z-index:1}
+.node{width:56px;height:56px;margin:0 auto 18px;display:grid;place-items:center;border:1px solid var(--cy);background:var(--bg);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);transition:transform .4s,background .4s}
+.step:hover .node{transform:rotate(90deg) scale(1.1);background:rgba(0,229,255,.15)}
+.node span{font-family:var(--mono);font-size:16px;color:var(--cy)}
+.step:hover .node span{transform:rotate(-90deg)}
+.step h4{font-size:15px;margin-bottom:6px}
+.step p{font-size:12px;color:var(--mu);line-height:1.6}
+.report{margin-left:14%;max-width:880px;border:1px solid var(--ln);background:var(--gl)}
+.rhd{display:flex;justify-content:space-between;align-items:center;padding:14px 22px;border-bottom:1px solid var(--ln)}
+.rhd span{font-family:var(--mono);font-size:12px;color:var(--cy)}
+.rhd b{font-family:var(--mono);font-size:10px;color:var(--rd);border:1px solid var(--rd);padding:3px 8px;font-weight:500}
+.rbody{padding:22px;display:grid;grid-template-columns:1fr 1fr;gap:28px}
+.rbody h5{font-size:11px;color:var(--mu);letter-spacing:2px;margin-bottom:12px}
+.kv{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dashed rgba(0,229,255,.1);font-size:13px}
+.kv span{color:var(--mu)}.kv b{color:var(--cy);font-family:var(--mono)}
+.br{display:flex;align-items:center;gap:10px;margin:10px 0;font-size:12px}
+.br s{width:70px;text-decoration:none;color:var(--mu)}
+.br .track{flex:1;height:7px;background:rgba(0,229,255,.08)}
+.br .track i{display:block;height:100%;background:var(--cy);box-shadow:0 0 10px var(--cy);transform:scaleX(0);transform-origin:left;transition:transform 1.2s cubic-bezier(.2,.8,.2,1)}
+.br .track.red i{background:var(--rd);box-shadow:0 0 10px var(--rd)}
+.report.go .track i{transform:scaleX(1)}
+
+/* DICOM - 错落节点，不用等分卡 */
+.dcm{padding:160px 0 60px}
+.dcm .ttl{margin-bottom:40px}
+.chain{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start}
+.chain div{flex:1;min-width:150px;padding:20px 16px;border-top:2px solid var(--ln);background:linear-gradient(180deg,rgba(0,229,255,.04),transparent);transition:border-color .3s,background .3s}
+.chain div:nth-child(2){margin-top:26px}.chain div:nth-child(3){margin-top:8px}
+.chain div:nth-child(4){margin-top:34px}.chain div:nth-child(5){margin-top:14px}.chain div:nth-child(6){margin-top:30px}
+.chain div:hover{border-color:var(--cy);background:linear-gradient(180deg,rgba(0,229,255,.1),transparent)}
+.chain b{font-family:var(--mono);font-size:12px;color:var(--cy)}
+.chain h4{font-size:15px;margin:10px 0 6px}
+.chain p{font-size:12px;color:var(--mu);line-height:1.6}
+
+/* 技术栈 - 卡片网格（参考仪表盘风格） */
+.tech{padding:70px 0 130px;border-top:1px solid var(--ln)}
+.tech-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+.tcard{position:relative;padding:26px 18px;border:1px solid var(--ln);background:var(--gl);overflow:hidden;clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px);transition:border-color .3s,background .3s}
+.tcard::after{content:"";position:absolute;left:0;bottom:0;width:0;height:2px;background:var(--cy);transition:width .4s cubic-bezier(.2,.8,.2,1)}
+.tcard:hover{border-color:var(--cy);background:rgba(0,229,255,.08)}
+.tcard:hover::after{width:100%}
+.tcard .tag-no{position:absolute;top:10px;right:12px;font-family:var(--mono);font-size:9px;color:var(--mu)}
+.tcard b{display:block;font-family:var(--mono);font-size:24px;color:var(--cy);margin-bottom:8px;transition:transform .3s}
+.tcard:hover b{transform:skewX(-6deg)}
+.tcard span{font-size:13px;color:var(--mu)}
+.tcard:nth-child(2) b{color:var(--rd)}
+.tcard:nth-child(2){transition-delay:.06s}.tcard:nth-child(3){transition-delay:.12s}.tcard:nth-child(4){transition-delay:.18s}.tcard:nth-child(5){transition-delay:.24s}
+.tcard .tag-no{animation:blink 3s infinite}
+.tcard:nth-child(even) .tag-no{animation-delay:1.5s}
+
+/* 仪表盘装饰 */
+.badge{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--cy);border:1px solid var(--ln);padding:5px 10px;background:rgba(0,229,255,.04)}
+.badge .live{width:6px;height:6px;background:var(--rd);border-radius:50%;box-shadow:0 0 8px var(--rd);animation:blink 1.6s infinite}
+@keyframes blink{50%{opacity:.3}}
+
+/* 结尾 - 仪表盘化 */
+.end{padding:90px 0 120px;border-top:1px solid var(--ln);position:relative}
+.end h2{font-size:clamp(38px,6vw,76px);font-weight:700;line-height:1.05;letter-spacing:-2px;margin-bottom:22px;color:var(--tx)}
+.end p{color:var(--mu);margin-bottom:28px;font-size:16px}
+.end .meta{display:flex;gap:16px;align-items:center;margin-bottom:26px;flex-wrap:wrap}
+.capbar{display:flex;gap:0;border-top:1px solid var(--rule);margin-top:60px;font-family:var(--mono);font-size:10px;letter-spacing:1px;color:var(--mu)}
+.capbar div{flex:1;padding:18px 0 18px 20px;border-right:1px solid var(--rule);display:flex;align-items:center;gap:12px}
+.capbar div:first-child{padding-left:0}
+.capbar div:last-child{border:0}
+.capbar b{color:var(--ac);font-weight:500}
+.capbar .on{color:var(--ac)}
+footer{border-top:1px solid var(--ln);padding:28px 0;color:var(--mu);font-size:12px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+
+/* 浮动组件 */
+.prog{position:fixed;top:0;left:0;height:2px;width:0;background:linear-gradient(90deg,var(--cy),var(--rd));z-index:100;pointer-events:none}
+.dot,.cur{position:fixed;left:0;top:0;border-radius:50%;pointer-events:none;z-index:200;transform:translate(-50%,-50%)}
+.dot{width:6px;height:6px;background:var(--cy);box-shadow:0 0 10px var(--cy)}
+.cur{width:32px;height:32px;border:1px solid rgba(0,229,255,.5);transition:width .25s,height .25s,border-color .25s}
+.cur.hot{width:50px;height:50px;border-color:var(--rd)}
+@media(hover:none){.dot,.cur{display:none}}
+.top{position:fixed;right:24px;bottom:24px;width:44px;height:44px;display:grid;place-items:center;border:1px solid var(--cy);background:rgba(5,18,32,.85);color:var(--cy);cursor:pointer;z-index:60;opacity:0;transform:translateY(14px);transition:.3s}
+.top.on{opacity:1;transform:none}
+.top:hover{background:var(--cy);color:#04121f}
+.lb{position:fixed;inset:0;z-index:300;background:rgba(2,8,16,.94);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s;padding:30px}
+.lb.on{opacity:1;pointer-events:auto}
+.lb img{max-width:94vw;max-height:90vh;border:1px solid var(--ln)}
+.lb .x{position:absolute;top:22px;right:28px;font-family:var(--mono);font-size:12px;color:var(--cy);border:1px solid var(--ln);padding:7px 12px;cursor:pointer}
+.cr{position:fixed;width:8px;height:8px;border:1px solid var(--cy);border-radius:50%;pointer-events:none;z-index:199;transform:translate(-50%,-50%);animation:cra .7s forwards}
+@keyframes cra{to{width:80px;height:80px;opacity:0;border-color:var(--rd)}}
+
+.rev{opacity:0;transform:translateY(18px);transition:opacity .7s,transform .7s}
+.rev.in{opacity:1;transform:none}
+@media(max-width:980px){
+  .nlinks,.ntech{display:none}
+  .nin .btn{margin-left:auto}
+  .hero-copy{width:100%}.visual{position:relative;right:auto;bottom:auto;width:100%;height:420px;margin-top:30px}
+  .panel{grid-template-columns:1fr}.shot{border-right:0;border-bottom:1px solid var(--ln)}
+  .row{grid-template-columns:50px 1fr 30px}.row p{grid-column:2;grid-row:2}.row .ar{grid-column:3;grid-row:1}
+  .report{margin-left:0}.chain div{min-width:45%}
+}
+@media(max-width:640px){.nums-in div{padding:10px 18px}.flow,.rbody{grid-template-columns:1fr 1fr}.row:nth-child(even) h3{padding-left:0}.tech-grid{grid-template-columns:repeat(2,1fr)}
+  .hero h1{letter-spacing:-1px}
+  .capbar{flex-wrap:wrap}.capbar div{flex:0 0 50%;border-right:0;border-bottom:1px solid var(--rule);padding-left:0}.capbar div:first-child{border-right:1px solid var(--rule)}}
+</style>
+</head>
+<body>
+<div class="prog" id="prog"></div><div class="dot" id="dot"></div><div class="cur" id="cur"></div>
+<div class="grid"></div><div class="glow a"></div><div class="glow b"></div><canvas id="bgp"></canvas>
+
+<nav id="nav"><div class="nin">
+  <a class="logo" href="#top"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M16 28S4 20.5 4 12.6C4 8.4 7.2 5 11.2 5c2.1 0 3.9 1 4.8 2.6C16.9 6 18.7 5 20.8 5 24.8 5 28 8.4 28 12.6 28 20.5 16 28 16 28Z"/></svg><span>HEART<b>3D</b><small>心脏CT 3D可视化</small></span></a>
+  <div class="ntech" style="margin-left:auto;font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--mu);white-space:nowrap">VUE3 · VTK.js · THREE.js · FASTAPI</div>
+  <div class="nlinks" style="margin-left:26px"><a href="#work">做了什么</a><a href="#view">四种视图</a><a href="#ai">AI 分析</a><a href="#dcm">影像流程</a><a href="#tech">技术栈</a></div>
+  <a class="btn" href="/" target="_blank">进系统 ↗</a>
+</div></nav>
+
+<header class="hero" id="top"><div class="wrap hero-in">
+  <div class="hero-copy">
+    <h1>把 CT 切片，<br>拼回一颗<em>能转的心脏</em></h1>
+    <p class="lead">DICOM 序列丢进去，三维心脏出来。能拖着转、能剖开看、能拿尺子量，也能让模型替你找病灶。</p>
+    <div class="acts"><a class="btn" href="/" target="_blank">进系统 →</a><a class="btn ghost" href="#work">看做了什么</a></div>
+    <div style="margin-top:30px"><span class="badge"><span class="live"></span>SYSTEM ONLINE · 本地运行中</span></div>
+  </div>
+  <div class="visual" id="visual">
+    <div class="ring"></div><canvas id="hc"></canvas><div class="fb" id="fb"></div>
+    <div class="load" id="load">加载三维心脏<i id="lbar"></i></div>
+    <div class="tag a">150 万<small>个三角面</small></div><div class="tag b">2304 片<small>原始影像</small></div><div class="tag c">22 处<small>病灶标记</small></div>
+  </div>
+</div></header>
+
+<section class="nums"><div class="wrap nums-in">
+  <div><b data-c="13">0</b><span>份病例</span></div><div><b data-c="2304">0</b><span>张切片</span></div>
+  <div><b data-c="150">0</b><span>万个面</span></div><div><b data-c="4">0</b><span>步推理</span></div>
+</div></section>
+
+<section class="work" id="work"><div class="wrap">
+  <h2 class="ttl rev">做了什么</h2>
+  <div class="rows">
+    <div class="row rev"><span class="no">01</span><h3>心脏模型</h3><p>150 万个面，冠脉和血管树都在。拖着转，滚轮缩放，病灶直接贴在表面。</p><span class="ar">↗</span></div>
+    <div class="row rev"><span class="no">02</span><h3>体数据</h3><p>把体数据渲染成三维结构，窗宽窗位自己调，想看哪层看哪层。</p><span class="ar">↗</span></div>
+    <div class="row rev"><span class="no">03</span><h3>剖切</h3><p>轴位、冠状、矢状三个方向切开，切面填成实心心肌，三格同步联动。</p><span class="ar">↗</span></div>
+    <div class="row rev"><span class="no">04</span><h3>MPR</h3><p>切回平面。三张灰阶图实时联动，还能拿尺子量距离。</p><span class="ar">↗</span></div>
+    <div class="row rev"><span class="no">05</span><h3>AI 分析</h3><p>读体数据、量 CT 值、交给大模型、校验结果。四步，逐病灶出报告。</p><span class="ar">↗</span></div>
+    <div class="row rev"><span class="no">06</span><h3>DICOM</h3><p>标准序列能下载、能导入、能建新档案，从一片影像走到一颗心。</p><span class="ar">↗</span></div>
+  </div>
+</div></section>
+
+<section class="view" id="view"><div class="wrap">
+  <h2 class="ttl rev">四种看法</h2>
+  <div class="tabs rev"><div class="tab on" data-m="0">解剖模型</div><div class="tab" data-m="1">体数据</div><div class="tab" data-m="2">3D 剖切</div><div class="tab" data-m="3">2D 精读</div></div>
+  <div class="panel rev">
+    <div class="chrome"><i></i><i></i><i></i><span class="live">RENDERING</span></div>
+    <div class="pbody">
+      <div class="shot"><div class="frame"><div class="bar"><i></i><i></i><i></i><em id="cap">解剖模型</em></div><img id="shot" src="view_anatomy.png" alt="视图截图"></div></div>
+      <div class="info"><div class="mt" id="mt">01 · 解剖模型</div><h3 id="tt">三维解剖</h3><p id="ds">精细还原心脏、冠脉与肺血管树，病灶直接标在模型上。</p><ul id="ls"><li>拖拽旋转，滚轮缩放</li><li>病例专属模型自动匹配</li><li>病灶按解剖位置投影</li></ul></div>
+    </div>
+  </div>
+</div></section>
+
+<section class="ai" id="ai"><div class="wrap">
+  <h2 class="ttl rev">让模型先看一遍</h2>
+  <div class="flow">
+    <div class="step rev"><div class="node"><span>01</span></div><h4>读体数据</h4><p>定位病灶区域</p></div>
+    <div class="step rev"><div class="node"><span>02</span></div><h4>量 CT 值</h4><p>实测 HU 特征</p></div>
+    <div class="step rev"><div class="node"><span>03</span></div><h4>大模型推理</h4><p>逐病灶出结果</p></div>
+    <div class="step rev"><div class="node"><span>04</span></div><h4>校验</h4><p>对比体积误差</p></div>
+  </div>
+  <div class="report rev" id="report">
+    <div class="rhd"><span>病灶分析报告 · P0001</span><b>高置信度</b></div>
+    <div class="rbody">
+      <div><h5>病灶信息</h5>
+        <div class="kv"><span>类型</span><b>钙化斑块</b></div><div class="kv"><span>程度</span><b>中度</b></div>
+        <div class="kv"><span>置信度</span><b>0.92</b></div><div class="kv"><span>建议</span><b>定期随访</b></div>
+      </div>
+      <div><h5>体积对比</h5>
+        <div class="br"><s>AI 参数</s><div class="track"><i style="width:82%"></i></div></div>
+        <div class="br"><s>临床默认</s><div class="track"><i style="width:64%"></i></div></div>
+        <div class="br"><s>仿真真值</s><div class="track red"><i style="width:76%"></i></div></div>
+      </div>
+    </div>
+  </div>
+</div></section>
+
+<section class="dcm" id="dcm"><div class="wrap">
+  <h2 class="ttl rev">从一片，到一颗心</h2>
+  <div class="chain">
+    <div class="rev"><b>01</b><h4>上传</h4><p>DICOM 序列导入</p></div><div class="rev"><b>02</b><h4>解析</h4><p>逐层转成体数据</p></div>
+    <div class="rev"><b>03</b><h4>重建</h4><p>三维渲染</p></div><div class="rev"><b>04</b><h4>观察</h4><p>剖切与精读</p></div>
+    <div class="rev"><b>05</b><h4>分析</h4><p>病灶推理</p></div><div class="rev"><b>06</b><h4>报告</h4><p>结构化输出</p></div>
+  </div>
+</div></section>
+
+<section class="tech" id="tech"><div class="wrap">
+  <h2 class="ttl rev" style="margin-bottom:12px">现代化技术栈驱动</h2>
+  <p style="color:var(--mu);font-size:15px;margin-bottom:34px">前端三维渲染 + 后端智能分析，稳定可靠的工程组合。</p>
+  <div class="tech-grid">
+    <div class="tcard rev"><span class="tag-no">01</span><b>Vue3</b><span>前端框架</span></div>
+    <div class="tcard rev"><span class="tag-no">02</span><b>VTK.js</b><span>体绘制引擎</span></div>
+    <div class="tcard rev"><span class="tag-no">03</span><b>Three.js</b><span>三维渲染</span></div>
+    <div class="tcard rev"><span class="tag-no">04</span><b>FastAPI</b><span>后端接口</span></div>
+    <div class="tcard rev"><span class="tag-no">05</span><b>MySQL</b><span>数据存储</span></div>
+  </div>
+</div></section>
+
+<section class="end"><div class="wrap rev">
+  <div class="meta"><span class="badge"><span class="live"></span>LOCAL DEMO · READY</span></div>
+  <h2>准备好探索<br>三维心脏了吗？</h2>
+  <p>本地运行 · 课程模拟演示 · 默认账号 root / root</p>
+  <a class="btn" href="/" target="_blank">立即进入系统 →</a>
+  <div class="capbar"><div><span>01</span><b>三维重建</b></div><div><span>02</span><b>剖切与精读</b></div><div><span>03</span><b>AI 病灶推理</b></div><div><span class="on">●</span><span>SYSTEM LIVE</span></div></div>
+</div></section>
+<footer class="wrap"><span>HEART3D · 心脏CT 3D可视化医疗辅助系统</span></footer>
+
+<div class="top" id="topBtn" title="回到顶部">↑</div>
+<div class="lb" id="lb"><div class="x" id="lx">关闭 ✕</div><img id="li" src=""></div>
+
+<script src="lib/three.min.js"></script>
+<script src="lib/GLTFLoader.js"></script>
+<script>
+(function(){
+var $=function(s){return document.querySelector(s)},$$=function(s){return [].slice.call(document.querySelectorAll(s))};
+
+/* 滚动：进度、回顶、导航、视差 */
+var nav=$('#nav'),prog=$('#prog'),topBtn=$('#topBtn'),links=$$('.nlinks a'),secs=links.map(function(a){return $(a.getAttribute('href'))}),cp=$('.hero-copy'),vs=$('#visual'),tick=false;
+function scroll(){
+  if(tick)return;tick=true;requestAnimationFrame(function(){
+    var y=scrollY,h=document.documentElement.scrollHeight-innerHeight;
+    prog.style.width=(h>0?y/h*100:0)+'%';topBtn.classList.toggle('on',y>500);
+    nav.classList.toggle('stuck',y>40);
+    if(y<innerHeight){cp.style.transform='translateY('+(y*.12)+'px)';vs.style.transform='translateY('+(y*-.06)+'px)'}
+    var cur=-1;secs.forEach(function(s,i){if(s&&s.getBoundingClientRect().top<150)cur=i});
+    links.forEach(function(a,i){a.classList.toggle('active',i===cur)});tick=false;
+  });
+}
+addEventListener('scroll',scroll,{passive:true});scroll();
+topBtn.onclick=function(){scrollTo({top:0,behavior:'smooth'})};
+
+/* 按钮涟漪 */
+$$('.btn').forEach(function(b){b.onclick=function(e){var r=b.getBoundingClientRect(),d=document.createElement('span');d.className='rp';d.style.left=(e.clientX-r.left-4)+'px';d.style.top=(e.clientY-r.top-4)+'px';b.appendChild(d);setTimeout(function(){d.remove()},600)}});
+
+/* 入场 */
+var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}})},{threshold:.1});
+$$('.rev').forEach(function(e){io.observe(e)});
+
+/* 数字 */
+var counted=false,so=new IntersectionObserver(function(es){es.forEach(function(e){
+  if(e.isIntersecting&&!counted){counted=true;$$('[data-c]').forEach(function(el){var t=+el.dataset.c,s=performance.now();(function f(n){var p=Math.min((n-s)/1400,1);el.textContent=Math.floor(t*(1-Math.pow(1-p,3)));if(p<1)requestAnimationFrame(f)})(performance.now())})}
+})},{threshold:.3});so.observe($('.nums'));
+
+/* 报告条 */
+var ro=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('go');ro.unobserve(e.target)}})},{threshold:.3});ro.observe($('#report'));
+
+/* 背景粒子 */
+(function(){var c=$('#bgp'),x=c.getContext('2d'),p=[],mx=-999,my=-999;
+function sz(){c.width=innerWidth;c.height=innerHeight}sz();addEventListener('resize',sz);
+addEventListener('mousemove',function(e){mx=e.clientX;my=e.clientY});
+for(var i=0;i<80;i++)p.push({x:Math.random()*c.width,y:Math.random()*c.height,a:(Math.random()-.5)*.25,b:(Math.random()-.5)*.25,r:Math.random()*1.5+.4});
+(function f(){x.clearRect(0,0,c.width,c.height);p.forEach(function(o){o.x+=o.a;o.y+=o.b;var dx=o.x-mx,dy=o.y-my,d=dx*dx+dy*dy;if(d<8000){var k=(8000-d)/8000;o.x+=dx*k*.012;o.y+=dy*k*.012}if(o.x<0)o.x=c.width;if(o.x>c.width)o.x=0;if(o.y<0)o.y=c.height;if(o.y>c.height)o.y=0;x.beginPath();x.arc(o.x,o.y,o.r,0,6.28);x.fillStyle='rgba(0,229,255,.5)';x.fill()});requestAnimationFrame(f)})()})();
+
+/* 光标 */
+if(matchMedia('(hover:hover)').matches){
+  var dot=$('#dot'),ring=$('#cur'),mx=innerWidth/2,my=innerHeight/2,rx=mx,ry=my;
+  addEventListener('mousemove',function(e){mx=e.clientX;my=e.clientY});
+  (function f(){rx+=(mx-rx)*.2;ry+=(my-ry)*.2;dot.style.left=mx+'px';dot.style.top=my+'px';ring.style.left=rx+'px';ring.style.top=ry+'px';requestAnimationFrame(f)})();
+  document.onmouseover=function(e){if(e.target.closest('a,.tab,.btn,.row,.top,.frame'))ring.classList.add('hot')};
+  document.onmouseout=function(e){if(e.target.closest('a,.tab,.btn,.row,.top,.frame'))ring.classList.remove('hot')};
+}
+
+/* 截图放大 */
+var lb=$('#lb'),li=$('#li'),shot=$('#shot');
+shot.onclick=function(){li.src=shot.src;lb.classList.add('on')};
+$('#lx').onclick=function(){lb.classList.remove('on')};
+lb.onclick=function(e){if(e.target===lb)lb.classList.remove('on')};
+addEventListener('keydown',function(e){if(e.key==='Escape')lb.classList.remove('on')});
+
+/* 点击涟漪 */
+addEventListener('pointerdown',function(e){if(e.pointerType==='touch')return;var r=document.createElement('div');r.className='cr';r.style.left=e.clientX+'px';r.style.top=e.clientY+'px';document.body.appendChild(r);setTimeout(function(){r.remove()},700)});
+
+/* 视图切换 */
+var vd=[
+  {m:'01 · 解剖模型',t:'三维解剖',i:'view_anatomy.png',c:'解剖模型',d:'精细还原心脏、冠脉与肺血管树，病灶直接标在模型上。',l:['拖拽旋转，滚轮缩放','病例专属模型自动匹配','病灶按解剖位置投影']},
+  {m:'02 · 体数据',t:'体数据渲染',i:'view_volume.png',c:'体数据',d:'把体数据渲染成三维，窗宽窗位实时调节，观察不同密度组织。',l:['窗宽窗位实时调节','三方向剖切与重置','心腔与病灶标注']},
+  {m:'03 · 3D 剖切',t:'三方向剖切',i:'view_clip.png',c:'三方向剖切',d:'轴位、冠状、矢状实时剖开，切面填成实心心肌，三格同步联动。',l:['三切面滑块联动','实心心肌截面','每格独立旋转']},
+  {m:'04 · 2D 精读',t:'MPR 精读',i:'view_mpr.png',c:'2D 精读',d:'灰阶三切面实时联动，支持二维测距，回到经典阅片方式。',l:['三切面联动','2D 距离测量','灰阶窗位调节']}
+];
+$$('.tab').forEach(function(t){t.onclick=function(){$$('.tab').forEach(function(x){x.classList.remove('on')});t.classList.add('on');var n=+t.dataset.m,d=vd[n];
+$('#mt').textContent=d.m;$('#tt').textContent=d.t;$('#ds').textContent=d.d;$('#ls').innerHTML=d.l.map(function(x){return '<li>'+x+'</li>'}).join('');
+shot.style.opacity=0;var im=new Image();im.onload=function(){shot.src=d.i;$('#cap').textContent=d.c;shot.style.opacity=1};im.src=d.i}});
+
+/* 三维心脏 */
+(function(){
+  var c=$('#hc'),w=$('#visual');
+  function fb(){$('#fb').style.display='block';c.style.display='none'}
+  if(typeof THREE==='undefined'){fb();return}
+  var r;try{r=new THREE.WebGLRenderer({canvas:c,alpha:true,antialias:true})}catch(e){fb();return}
+  r.setPixelRatio(Math.min(devicePixelRatio,2));
+  var sc=new THREE.Scene(),cam=new THREE.PerspectiveCamera(45,1,.1,100);cam.position.z=9.5;
+  var g=new THREE.Group();sc.add(g);
+  sc.add(new THREE.AmbientLight(0x9fc4e0,1.15));
+  var k=new THREE.DirectionalLight(0x9fe8ff,1.7);k.position.set(3,4,5);sc.add(k);
+  var rm=new THREE.DirectionalLight(0xff4d6d,1.1);rm.position.set(-4,-2,-3);sc.add(rm);
+  function tex(){var x=document.createElement('canvas');x.width=x.height=64;var a=x.getContext('2d'),b=a.createRadialGradient(32,32,0,32,32,32);b.addColorStop(0,'#fff');b.addColorStop(.3,'rgba(255,255,255,.85)');b.addColorStop(1,'rgba(255,255,255,0)');a.fillStyle=b;a.fillRect(0,0,64,64);return new THREE.CanvasTexture(x)}
+  var tx=tex(),core=new THREE.Group();core.position.y=-.35;g.add(core),$('#load').classList;
+  function done(){$('#load').classList.add('off')}
+  function fallback(){
+    function mat(col,em){return new THREE.MeshPhongMaterial({color:col,emissive:em,emissiveIntensity:.35,shininess:70,transparent:true,opacity:.9,side:THREE.DoubleSide})}
+    var m1=mat(0xb81640,0x5e0a24),m2=mat(0x1f6fa8,0x0b3a5c);
+    function ch(a,b,c2,t,p){var gg=new THREE.SphereGeometry(1,36,28),q=gg.attributes.position,v=new THREE.Vector3();for(var i=0;i<q.count;i++){v.fromBufferAttribute(q,i);var s=1-t*Math.pow(1-(v.y+1)/2,1.6);v.x*=a*s;v.z*=c2*s;v.y*=b;v.x+=p*Math.pow(1-(v.y+1)/2,2);q.setXYZ(i,v.x,v.y,v.z)}gg.computeVertexNormals();return gg}
+    function add(gg,m,x,y,z){var o=new THREE.Mesh(gg,m);o.position.set(x,y,z);core.add(o)}
+    add(ch(1.05,1.5,1,.55,-.22),m1,-.18,-.25,0);add(ch(.82,1.25,.86,.5,.12),m1,.62,-.15,.28);
+    add(new THREE.SphereGeometry(.55,24,18),m1,-.5,.95,-.15);add(new THREE.SphereGeometry(.58,24,18),m1,.58,.82,.18);
+    function vb(pts,r,m){var cv=new THREE.CatmullRomCurve3(pts.map(function(p){return new THREE.Vector3(p[0],p[1],p[2])}));core.add(new THREE.Mesh(new THREE.TubeGeometry(cv,44,r,9,false),m))}
+    vb([[-.1,.85,0],[-.1,1.7,.05],[-.2,2.4,.05],[-.7,2.7,0],[-1.25,2.35,-.1]],.2,m1);
+    vb([[.45,.7,.4],[.5,1.5,.5],[.35,2.15,.5],[-.15,2.4,.45]],.17,m2);
+    done();
+  }
+  if(typeof THREE.GLTFLoader==='undefined'){fallback()}
+  else new THREE.GLTFLoader().load('../models/heart_model.glb',function(gl){
+    var m=gl.scene,b=new THREE.Box3().setFromObject(m),sz=b.getSize(new THREE.Vector3()),ct=b.getCenter(new THREE.Vector3()),s=4.6/Math.max(sz.x,sz.y,sz.z);
+    m.scale.setScalar(s);m.position.copy(ct).multiplyScalar(-s);core.add(m);done();
+  },function(e){$('#lbar').style.transform='scaleX('+(e.total?e.loaded/e.total:.4)+')'},function(){fallback()});
+  var ring=new THREE.Mesh(new THREE.TorusGeometry(2.9,.008,8,110),new THREE.MeshBasicMaterial({color:0x00e5ff,transparent:true,opacity:.3}));ring.rotation.x=1.15;g.add(ring);
+  var r2=new THREE.Mesh(new THREE.TorusGeometry(3.3,.006,8,110),new THREE.MeshBasicMaterial({color:0xff4d6d,transparent:true,opacity:.2}));r2.rotation.x=-.6;g.add(r2);
+  var dp=[];for(var j=0;j<600;j++){var a=Math.random()*6.28,d=3+Math.random()*2;dp.push(Math.cos(a)*d,(Math.random()-.5)*5,Math.sin(a)*d)}
+  var dg=new THREE.BufferGeometry();dg.setAttribute('position',new THREE.Float32BufferAttribute(dp,3));
+  var dust=new THREE.Points(dg,new THREE.PointsMaterial({size:.05,map:tx,color:0x7dd3fc,transparent:true,opacity:.5,blending:THREE.AdditiveBlending,depthWrite:false}));g.add(dust);
+  function sz(){var a=w.clientWidth,b=w.clientHeight;r.setSize(a,b,false);cam.aspect=a/b;cam.updateProjectionMatrix()}sz();addEventListener('resize',sz);
+  var drag=false,px=0,py=0,tx2=0,ty2=0,au=0,mx2=0,my2=0;
+  c.onpointerdown=function(e){drag=true;px=e.clientX;py=e.clientY};addEventListener('pointerup',function(){drag=false});
+  addEventListener('pointermove',function(e){if(drag){tx2+=(e.clientX-px)*.006;ty2+=(e.clientY-py)*.006;px=e.clientX;py=e.clientY}mx2=e.clientX/innerWidth-.5;my2=e.clientY/innerHeight-.5});
+  c.onwheel=function(e){cam.position.z=Math.max(6,Math.min(14,cam.position.z+e.deltaY*.006));e.preventDefault()};
+  (function f(){au+=.0025;g.rotation.y+=((tx2+au+mx2*.25)-g.rotation.y)*.06;g.rotation.x+=((ty2+my2*.15)-g.rotation.x)*.06;ring.rotation.z+=.004;r2.rotation.z-=.003;dust.rotation.y-=.0012;r.render(sc,cam);requestAnimationFrame(f)})()
+})();
+})();
+</script>
+</body>
+</html>
