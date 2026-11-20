@@ -50,6 +50,10 @@
 - 启动：双击 start.bat（或桌面快捷方式 Heart3D System）
 - 停止：双击 stop.bat
 - 访问：http://localhost:5176（后端接口 127.0.0.1:8000，接口文档 /docs）
+- 介绍页（不用登录，四张界面图 + 三方向剖切演示）：http://localhost:5176/landing/index.html
+  地址必须带 index.html；只输 /landing/ 会被前端路由兜底成登录页
+  登录页底部也有入口「了解本系统 · 查看介绍页 →」，点了就跳这个地址
+  介绍页是纯静态文件，在 frontend\public\landing\ 下，丢了不影响主系统，也不会被 start.bat 重建
 - 数据库里已有 13 个病例，不需要重新导入：
   P0001~P0010（10 个模拟病例）、P0023 示例病例（76 岁，AI 已分析过）、
   测试病例、P0001H 张三（384 MB 高清体数据病例）
@@ -101,6 +105,24 @@
 1. 复制 research\config.local.example.json，改名成 config.local.json
 2. 打开填入自己的 base_url / model / api_key（与原电脑相同即可）
 3. 重开页面，AI 分析恢复；不填的话「AI 病灶分析」会提示模型调用失败
+
+   —— 多接入点：一个接入点额度用尽不必每次手动改 ——
+4. config.local.json 里 models 可以写成列表：["ep-主用","ep-备用1","ep-备用2"]
+   数组顺序就是尝试顺序。调用时遇到 429（额度用尽）/ 404（接入点不存在）/ 401、403，
+   立即换下一个接入点；超时、5xx 只当抖动，在同一个接入点上再试一次
+   本次分析实际用了哪个接入点，会写进报告的模型台账（model_used）；
+   全部失败时错误信息会把每个接入点的失败原因逐条列出，一眼看出是哪个不行
+5. 也可以彻底不建文件，改用环境变量（优先级高于 config.local.json，key 不落盘）：
+   ARK_API_KEY        必填
+   ARK_MODEL          主接入点（ep-xxxx 或模型 ID）
+   ARK_MODELS         多个接入点，英文逗号分隔：ep-A,ep-B,ep-C
+   ARK_BASE_URL       默认 https://ark.cn-beijing.volces.com/api/v3
+   ARK_TIMEOUT        秒，默认 60
+   ARK_TEMPERATURE    默认 0.2
+6. 换机器后先自检哪些接入点还能用（每个接入点只花 4 个 token）：
+   backend\venv\Scripts\python.exe research\check_models.py
+   输出 [可用] / [不可用] 及 HTTP 码含义；加 --apply 会把能用的自动排到列表最前面，
+   并先备份成 config.local.bak日期时间.json 再写回
 
 【六、常见问题】
 1. 启动报错或页面打不开
